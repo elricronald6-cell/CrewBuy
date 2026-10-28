@@ -1,0 +1,550 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>CrewBuy — tiered group buying on BOT Chain</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.9.0/ethers.umd.min.js"></script>
+<style>
+/* ============================================================================
+   NEO-BRUTALISM — thick black outlines, zero-blur hard offset shadows,
+   unrounded geometry, clashing saturated accents. A sticky slab bar on top,
+   a full-width builder slab, then deals in a column-flow masonry of blocks.
+   ========================================================================== */
+:root{
+  --paper:#fffdf6;
+  --ink:#101010;
+  --yellow:#ffdd34;
+  --blue:#3b5bff;
+  --pink:#ff5c8a;
+  --green:#00d68f;
+  --grey:#6d6d6d;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{
+  background:var(--paper);color:var(--ink);
+  font-family:'Space Grotesk',system-ui,sans-serif;font-size:16px;line-height:1.45;
+  background-image:linear-gradient(var(--ink) 1px, transparent 1px),
+    linear-gradient(90deg, var(--ink) 1px, transparent 1px);
+  background-size:72px 72px;background-position:-1px -1px;
+  background-blend-mode:normal;
+}
+body::before{content:"";position:fixed;inset:0;background:var(--paper);opacity:.955;z-index:0;pointer-events:none}
+.shell{position:relative;z-index:1}
+h1,h2,h3,h4,.black{font-family:'Archivo Black',Impact,sans-serif;font-weight:400;margin:0;
+  text-transform:uppercase;letter-spacing:-.02em}
+
+/* ---------- sticky slab bar ---------- */
+.slabbar{position:sticky;top:0;z-index:30;background:var(--ink);color:var(--paper);
+  border-bottom:5px solid var(--ink);display:flex;align-items:center;gap:14px;flex-wrap:wrap;
+  padding:12px 20px}
+.slabbar .logo{font-family:'Archivo Black';font-size:22px;text-transform:uppercase;letter-spacing:-.03em}
+.slabbar .logo span{color:var(--yellow)}
+.slabbar .tag{font-weight:700;font-size:12px;letter-spacing:.1em;text-transform:uppercase;
+  background:var(--yellow);color:var(--ink);padding:4px 9px;border:3px solid var(--paper)}
+.slabbar .tag.off{background:var(--pink);color:#fff}
+.slabbar .sp{margin-left:auto}
+
+button{
+  font-family:'Space Grotesk';font-weight:700;font-size:14px;text-transform:uppercase;letter-spacing:.03em;
+  cursor:pointer;background:var(--yellow);color:var(--ink);border:4px solid var(--ink);
+  padding:9px 17px;box-shadow:6px 6px 0 var(--ink);transition:.08s
+}
+button:hover:not(:disabled){transform:translate(-2px,-2px);box-shadow:8px 8px 0 var(--ink)}
+button:active:not(:disabled){transform:translate(6px,6px);box-shadow:0 0 0 var(--ink)}
+button:disabled{opacity:.4;cursor:not-allowed;box-shadow:none}
+button.blue{background:var(--blue);color:#fff}
+button.green{background:var(--green)}
+button.pink{background:var(--pink);color:#fff}
+button.white{background:#fff}
+button.sm{font-size:12px;padding:6px 12px;border-width:3px;box-shadow:4px 4px 0 var(--ink)}
+button.sm:hover:not(:disabled){box-shadow:6px 6px 0 var(--ink)}
+button.sm:active:not(:disabled){transform:translate(4px,4px);box-shadow:0 0 0 var(--ink)}
+.slabbar button{box-shadow:5px 5px 0 var(--paper);border-color:var(--paper)}
+.slabbar button:hover:not(:disabled){box-shadow:7px 7px 0 var(--paper)}
+.slabbar button:active:not(:disabled){box-shadow:0 0 0 var(--paper)}
+
+.wrap{max-width:1240px;margin:0 auto;padding:0 20px 80px}
+
+/* ---------- hero slab ---------- */
+.hero{border:5px solid var(--ink);box-shadow:12px 12px 0 var(--ink);margin:30px 0 0;
+  display:grid;grid-template-columns:1.5fr 1fr}
+@media(max-width:860px){.hero{grid-template-columns:1fr}}
+.hero .l{padding:34px 30px;background:var(--paper)}
+.hero h1{font-size:clamp(42px,7.4vw,84px);line-height:.88}
+.hero h1 .k{color:var(--blue)}
+.hero p{font-weight:500;font-size:19px;margin:18px 0 0;max-width:38ch}
+.hero .r{background:var(--blue);color:#fff;padding:30px;border-left:5px solid var(--ink);
+  display:flex;flex-direction:column;justify-content:center;gap:12px}
+@media(max-width:860px){.hero .r{border-left:none;border-top:5px solid var(--ink)}}
+.hero .r b{font-family:'Archivo Black';font-size:clamp(32px,5vw,54px);line-height:.9;display:block}
+.hero .r span{font-weight:700;font-size:12.5px;letter-spacing:.14em;text-transform:uppercase;opacity:.9}
+
+/* ---------- full-width builder slab ---------- */
+.builder{border:5px solid var(--ink);box-shadow:12px 12px 0 var(--pink);margin:40px 0 0;background:#fff}
+.builder .bhead{background:var(--ink);color:var(--paper);padding:12px 22px;
+  display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap}
+.builder .bhead h2{font-size:20px}
+.builder .bbody{padding:24px 22px 26px;display:grid;grid-template-columns:1.2fr 1fr;gap:28px}
+@media(max-width:900px){.builder .bbody{grid-template-columns:1fr}}
+label{display:block;font-weight:700;font-size:11.5px;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--grey);margin-bottom:5px}
+input,select{width:100%;padding:10px 12px;border:3px solid var(--ink);background:#fff;color:var(--ink);
+  font-family:'Space Grotesk';font-weight:700;font-size:15px}
+input:focus,select:focus{outline:none;background:var(--yellow)}
+.tierrow{display:grid;grid-template-columns:1fr 1fr auto;gap:10px;align-items:end;margin-top:10px}
+.pair{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:14px}
+
+/* ---------- deals: column-flow masonry of blocks ---------- */
+.dealhead{display:flex;align-items:baseline;gap:16px;flex-wrap:wrap;margin:48px 0 18px}
+.dealhead h2{font-size:30px}
+.dealhead span{font-weight:700;font-size:12.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--grey)}
+.masonry{columns:3 320px;column-gap:24px}
+.block{break-inside:avoid;margin:0 0 24px;border:5px solid var(--ink);background:#fff;
+  box-shadow:9px 9px 0 var(--ink)}
+.block:nth-child(4n+1){box-shadow:9px 9px 0 var(--blue)}
+.block:nth-child(4n+2){box-shadow:9px 9px 0 var(--pink)}
+.block:nth-child(4n+3){box-shadow:9px 9px 0 var(--green)}
+.block .bh{background:var(--ink);color:var(--paper);padding:12px 16px}
+.block .bh h3{font-size:18px;line-height:1.15}
+.block .bh .st{font-weight:700;font-size:11px;letter-spacing:.12em;text-transform:uppercase;
+  color:var(--yellow);margin-top:4px}
+.ladder{padding:14px 16px 4px}
+.rung{display:grid;grid-template-columns:62px 1fr 72px;gap:10px;align-items:center;margin-bottom:9px;
+  font-weight:700;font-size:12px}
+.rung .track{height:22px;border:3px solid var(--ink);background:#fff;position:relative}
+.rung .track i{position:absolute;left:0;top:0;bottom:0;background:var(--blue)}
+.rung.hit .track i{background:var(--green)}
+.rung .px{text-align:right;font-family:'Archivo Black';font-size:14px}
+.rung.hit .px{color:var(--green)}
+.facts{display:grid;grid-template-columns:1fr 1fr;border-top:4px solid var(--ink)}
+.facts div{padding:10px 16px;border-right:3px solid var(--ink);border-bottom:3px solid var(--ink)}
+.facts div:nth-child(2n){border-right:none}
+.facts span{display:block;font-weight:700;font-size:10.5px;letter-spacing:.12em;
+  text-transform:uppercase;color:var(--grey)}
+.facts b{font-family:'Archivo Black';font-size:19px;font-weight:400}
+.block .ba{padding:14px 16px;display:flex;gap:9px;flex-wrap:wrap}
+
+.nothing{border:5px dashed var(--ink);padding:44px 24px;text-align:center;
+  font-family:'Archivo Black';font-size:17px;text-transform:uppercase;color:var(--grey)}
+
+#toast{position:fixed;left:20px;bottom:20px;transform:translateY(190%);
+  background:var(--yellow);color:var(--ink);padding:14px 20px;border:5px solid var(--ink);
+  box-shadow:8px 8px 0 var(--ink);font-weight:700;font-size:14px;text-transform:uppercase;
+  max-width:min(88vw,460px);transition:transform .18s;z-index:60}
+#toast.show{transform:translateY(0)}
+#toast.bad{background:var(--pink);color:#fff}
+
+footer{border-top:5px solid var(--ink);margin-top:46px;padding:18px 0 0;
+  font-weight:700;font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--grey);
+  display:flex;justify-content:space-between;gap:14px;flex-wrap:wrap}
+
+/* ===== BOT Chain ecosystem footer (KPI 5) ===== */
+footer.bc-foot{display:block;position:relative;z-index:1;max-width:1240px;margin:46px auto 0;
+  border:5px solid #101010;background:#fff;box-shadow:12px 12px 0 #101010}
+.bc-foot-grid{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:20px;
+  padding:20px 22px;border-bottom:5px solid #101010}
+@media(max-width:720px){.bc-foot-grid{grid-template-columns:1fr;gap:14px}}
+.bc-foot .bc-logo{border:4px solid #101010;padding:9px 13px;background:#ffdd34}
+.bc-foot .bc-id{font-family:'Archivo Black',sans-serif;font-size:21px;text-transform:uppercase;
+  letter-spacing:-.02em;color:#101010}
+.bc-foot .bc-id small{display:block;font-family:'Space Grotesk',sans-serif;font-weight:700;
+  font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:#6d6d6d;margin-top:4px}
+.bc-foot .bc-links{display:flex;gap:10px;flex-wrap:wrap}
+.bc-foot .bc-links a{font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:12.5px;
+  letter-spacing:.03em;text-transform:uppercase;color:#101010;text-decoration:none;
+  padding:9px 16px;border:4px solid #101010;background:#ffdd34;box-shadow:5px 5px 0 #101010}
+.bc-foot .bc-links a:nth-child(2){background:#3b5bff;color:#fff}
+.bc-foot .bc-links a:hover{transform:translate(-2px,-2px);box-shadow:7px 7px 0 #101010}
+.bc-foot .bc-meta{font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:11px;
+  letter-spacing:.12em;text-transform:uppercase;color:#6d6d6d;padding:13px 22px;
+  display:flex;justify-content:space-between;gap:14px;flex-wrap:wrap}
+.bc-foot .bc-meta b{color:#101010}
+</style>
+</head>
+<body>
+<div class="shell">
+
+  <div class="slabbar">
+    <div class="logo">Crew<span>Buy</span></div>
+    <span class="tag" id="t-net">network</span>
+    <span class="tag" id="t-ctr">contract</span>
+    <span class="tag" id="t-acct">not connected</span>
+    <span class="sp"></span>
+    <button class="sm white" id="btn-refresh">Refresh</button>
+    <button class="sm" id="btn-connect">Connect</button>
+  </div>
+
+  <div class="wrap">
+
+    <section class="hero">
+      <div class="l">
+        <h1>Pay top.<br /><span class="k">Refund down.</span></h1>
+        <p>A seller posts a price ladder. Everyone pays the top price up front and gets refunded down to whatever tier the crew actually reached.</p>
+      </div>
+      <div class="r">
+        <div><b id="h-deals">—</b><span>deals posted</span></div>
+        <div><b id="h-locked">—</b><span>BOT held for buyers</span></div>
+        <div><b id="h-fee">—</b><span>seller fee</span></div>
+      </div>
+    </section>
+
+    <section class="builder">
+      <div class="bhead"><h2>Post a deal</h2><span style="font-weight:700;font-size:12px;letter-spacing:.1em">HEAD COUNTS UP · PRICES DOWN · MAX 8 TIERS</span></div>
+      <div class="bbody">
+        <div>
+          <label for="f-item">What you are selling</label>
+          <input id="f-item" maxlength="72" placeholder="Screenprinted deck, 8.25" />
+          <div class="pair">
+            <div>
+              <label for="f-cap">Cap on buyers</label>
+              <input id="f-cap" type="number" min="1" step="1" value="20" />
+            </div>
+            <div>
+              <label for="f-dur">Runs for</label>
+              <select id="f-dur">
+                <option value="86400">1 day</option>
+                <option value="604800" selected>7 days</option>
+                <option value="1209600">14 days</option>
+                <option value="2592000">30 days</option>
+              </select>
+            </div>
+          </div>
+          <div style="margin-top:20px"><button class="green" id="btn-create">Post it</button></div>
+        </div>
+        <div>
+          <label>The ladder</label>
+          <div id="tiers"></div>
+          <div style="margin-top:12px"><button class="sm white" id="btn-add-tier">+ Tier</button></div>
+          <p style="font-weight:500;font-size:13.5px;color:var(--grey);margin-top:14px">
+            The first row is also the minimum for the deal to go ahead. Finish below it and every buyer takes back the whole of what they paid.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <div class="dealhead"><h2>Open deals</h2><span>settles when the clock runs out, or the moment the cap fills</span></div>
+    <div class="masonry" id="deals"><div class="nothing">No deals yet</div></div>
+
+    <footer>
+      <span>CrewBuy · first in pays what last in pays</span>
+      <span id="f-chain">BOT Chain</span>
+    </footer>
+  </div>
+</div>
+
+
+<!-- ===== BOT Chain ecosystem footer (KPI 5) ===== -->
+<footer class="bc-foot">
+  <div class="bc-foot-grid">
+    <div class="bc-logo" aria-hidden="true"><svg viewBox="0 0 63.63 100" xmlns="http://www.w3.org/2000/svg" style="width:21px;height:33px;display:block"><path fill="#00A67E" d="M31.67 99.95 L0 82.48 L0.11 63.74 L47.01 90.60 L47.01 73.19 L15.98 55.32 L15.95 36.49 L46.92 53.57 L47.39 36.82 L15.96 17.81 L16.26 0 L63.06 27.02 L62.82 46.20 L47.86 54.67 L62.85 63.00 L63.62 81.42 Z"/></svg></div>
+    <div class="bc-id">BOT Chain<small>Part of the ecosystem</small></div>
+    <div class="bc-links">
+      <a href="https://botchain.ai" target="_blank" rel="noopener noreferrer">botchain.ai</a>
+      <a id="bc-explorer" href="https://scan.botchain.ai" target="_blank" rel="noopener noreferrer">Explorer</a>
+    </div>
+  </div>
+  <div class="bc-meta">
+    <span>&copy; 2026 <b>BOT Chain</b> &mdash; EVM-compatible Layer 1</span>
+  </div>
+</footer>
+
+<div id="toast"></div>
+
+<script>
+/* ============================================================================
+   CONTRACT + NETWORK CONFIG
+
+   Paste the deployed address below. Defaults to BOT Chain TESTNET.
+
+   TESTNET -> MAINNET: swap these five values together, never some of them.
+     CONTRACT_ADDRESS  -> the mainnet address
+     chainId           -> "0x2A5"
+     chainName         -> "BOT Chain"
+     rpcUrls           -> ["https://rpc.botchain.ai"]
+     blockExplorerUrls -> ["https://scan.botchain.ai"]
+   ...and set label -> "MAINNET" so the badge reads correctly.
+   ========================================================================== */
+const CONTRACT_ADDRESS = "0x0000000000000000000000000000000000000000";
+
+const NETWORK = {
+  chainId: "0x3C8",                              // 968 testnet  | mainnet: "0x2A5"
+  chainIdDec: 968,                               // reference only, not shown on the page | mainnet: 677
+  chainName: "BOT Chain Testnet",                //              | mainnet: "BOT Chain"
+  rpcUrls: ["https://rpc.bohr.life"],            //              | mainnet: ["https://rpc.botchain.ai"]
+  blockExplorerUrls: ["https://scan.bohr.life"], //              | mainnet: ["https://scan.botchain.ai"]
+  nativeCurrency: { name: "BOT", symbol: "BOT", decimals: 18 },
+  label: "TESTNET"                               //              | mainnet: "MAINNET"
+};
+
+const ABI = [
+  "function createDeal(string item, uint32[] tierMins, uint256[] tierPrices, uint64 durationSecs, uint32 cap) returns (uint256)",
+  "function join(uint256 id) payable",
+  "function settle(uint256 id)",
+  "function claimRefund(uint256 id)",
+  "function sellerWithdraw(uint256 id)",
+  "function cancelDeal(uint256 id)",
+  "function dealCount() view returns (uint256)",
+  "function getDeal(uint256 id) view returns (tuple(address seller,uint64 endsAt,uint32 cap,uint32 buyers,uint256 topPrice,uint256 finalPrice,bool settled,bool failed,bool sellerPaid,bool cancelled,string item))",
+  "function getTiers(uint256 id) view returns (uint32[] mins, uint256[] prices)",
+  "function priceNow(uint256 id) view returns (uint256)",
+  "function nextTier(uint256 id) view returns (uint32 atBuyers, uint256 price)",
+  "function hasJoined(uint256 id, address who) view returns (bool)",
+  "function hasRefunded(uint256 id, address who) view returns (bool)",
+  "function getRecent(uint256 limit) view returns (uint256[])",
+  "function lockedTotal() view returns (uint256)",
+  "function feeBps() view returns (uint16)"
+];
+
+const ZERO = "0x0000000000000000000000000000000000000000";
+const $ = (id) => document.getElementById(id);
+let provider, signer, account, contract, readContract;
+let deals = [];
+
+function toast(msg, bad) {
+  const t = $("toast");
+  t.textContent = msg;
+  t.className = "show" + (bad ? " bad" : "");
+  clearTimeout(t._h);
+  t._h = setTimeout(() => (t.className = ""), 4400);
+}
+const short = (a) => a.slice(0, 6) + "…" + a.slice(-4);
+const fmt = (wei) => {
+  const n = Number(ethers.formatEther(wei));
+  return (n >= 1 ? n.toFixed(2) : n.toFixed(4)).replace(/0+$/, "").replace(/\.$/, "");
+};
+function esc(s) {
+  return String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+}
+function reason(e) {
+  const m = (e && (e.shortMessage || e.reason || e.message)) || "Transaction failed";
+  return String(m).replace(/^execution reverted:?\s*/i, "").slice(0, 150);
+}
+function left(ts) {
+  const s = ts - Math.floor(Date.now() / 1000);
+  if (s <= 0) return "closed";
+  const d = Math.floor(s / 86400);
+  if (d >= 1) return d + "d left";
+  return Math.max(1, Math.floor(s / 3600)) + "h left";
+}
+
+/* ---------------------------------------------------- tier builder rows */
+function addTierRow(min = "", price = "") {
+  const row = document.createElement("div");
+  row.className = "tierrow";
+  row.innerHTML =
+    '<div><label>At buyers</label><input class="t-min" type="number" min="1" step="1" value="' + esc(min) + '" /></div>' +
+    '<div><label>Price BOT</label><input class="t-price" type="number" min="0" step="0.01" value="' + esc(price) + '" /></div>' +
+    '<button class="sm pink" type="button" data-drop>×</button>';
+  row.querySelector("[data-drop]").onclick = () => row.remove();
+  $("tiers").appendChild(row);
+}
+addTierRow(1, "1");
+addTierRow(5, "0.8");
+addTierRow(10, "0.6");
+$("btn-add-tier").onclick = () => {
+  if ($("tiers").children.length >= 8) { toast("Eight tiers is the limit", true); return; }
+  addTierRow();
+};
+
+/* ---------------------------------------------------------------- wallet */
+function readOnly() {
+  try {
+    const p = new ethers.JsonRpcProvider(NETWORK.rpcUrls[0]);
+    readContract = new ethers.Contract(CONTRACT_ADDRESS, ABI, p);
+  } catch (e) { /* no read-only view */ }
+}
+async function connect() {
+  if (!window.ethereum) { toast("No wallet found", true); return; }
+  try {
+    provider = new ethers.BrowserProvider(window.ethereum);
+    await provider.send("eth_requestAccounts", []);
+    await ensureChain();
+    signer = await provider.getSigner();
+    account = await signer.getAddress();
+    contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, signer);
+    $("t-acct").textContent = short(account);
+    $("btn-connect").textContent = "Connected";
+    await load();
+  } catch (e) { toast(reason(e), true); }
+}
+async function ensureChain() {
+  const current = await window.ethereum.request({ method: "eth_chainId" });
+  if (current.toLowerCase() === NETWORK.chainId.toLowerCase()) return;
+  try {
+    await window.ethereum.request({ method: "wallet_switchEthereumChain", params: [{ chainId: NETWORK.chainId }] });
+  } catch (err) {
+    if (err.code === 4902) {
+      await window.ethereum.request({
+        method: "wallet_addEthereumChain",
+        params: [{
+          chainId: NETWORK.chainId, chainName: NETWORK.chainName, rpcUrls: NETWORK.rpcUrls,
+          blockExplorerUrls: NETWORK.blockExplorerUrls, nativeCurrency: NETWORK.nativeCurrency
+        }]
+      });
+    } else throw err;
+  }
+}
+
+/* ------------------------------------------------------------------ load */
+async function load() {
+  const c = contract || readContract;
+  if (!c || CONTRACT_ADDRESS === ZERO) { render(); return; }
+  try {
+    const [n, locked, fee] = await Promise.all([c.dealCount(), c.lockedTotal(), c.feeBps()]);
+    $("h-deals").textContent = n.toString();
+    $("h-locked").textContent = fmt(locked);
+    $("h-fee").textContent = (Number(fee) / 100) + "%";
+
+    const ids = await c.getRecent(12n);
+    deals = [];
+    for (const id of ids) {
+      const d = await c.getDeal(id);
+      const tiers = await c.getTiers(id);
+      const now = await c.priceNow(id);
+      let joined = false, refunded = false;
+      if (account) {
+        joined = await c.hasJoined(id, account);
+        refunded = await c.hasRefunded(id, account);
+      }
+      deals.push({ id, d, tiers, now, joined, refunded });
+    }
+    render();
+  } catch (e) {
+    toast("Could not read the contract", true);
+  }
+}
+
+/* ---------------------------------------------------------------- render */
+function render() {
+  const el = $("deals");
+  if (CONTRACT_ADDRESS === ZERO) {
+    el.innerHTML = '<div class="nothing">No contract address set — paste it into CONTRACT_ADDRESS in this file</div>';
+    return;
+  }
+  if (!deals.length) { el.innerHTML = '<div class="nothing">No deals yet</div>'; return; }
+  const now = Math.floor(Date.now() / 1000);
+
+  el.innerHTML = deals.map(({ id, d, tiers, now: priceNow, joined, refunded }) => {
+    const mine = account && d.seller.toLowerCase() === account.toLowerCase();
+    const ended = now >= Number(d.endsAt) || Number(d.buyers) === Number(d.cap);
+    const buyers = Number(d.buyers);
+
+    const rungs = tiers.mins.map((m, i) => {
+      const reached = buyers >= Number(m);
+      const pct = Math.min(100, (buyers / Number(m)) * 100);
+      return '<div class="rung ' + (reached ? "hit" : "") + '">' +
+        "<span>" + m + "+ IN</span>" +
+        '<div class="track"><i style="width:' + pct.toFixed(0) + '%"></i></div>' +
+        '<span class="px">' + fmt(tiers.prices[i]) + "</span>" +
+      "</div>";
+    }).join("");
+
+    let acts = "";
+    if (!d.settled && !d.cancelled && !ended && !mine && !joined) {
+      acts += '<button class="sm green" data-join="' + id + '" data-price="' + d.topPrice + '">Join ' + fmt(d.topPrice) + " BOT</button>";
+    }
+    if (!d.settled && !d.cancelled && ended) acts += '<button class="sm blue" data-settle="' + id + '">Settle</button>';
+    if ((d.settled || d.cancelled) && joined && !refunded) acts += '<button class="sm" data-refund="' + id + '">Refund</button>';
+    if (d.settled && mine && !d.failed && !d.sellerPaid) acts += '<button class="sm" data-pay="' + id + '">Collect</button>';
+    if (!d.settled && !d.cancelled && mine && buyers === 0) acts += '<button class="sm pink" data-cancel="' + id + '">Pull</button>';
+
+    const state = d.cancelled ? "pulled"
+      : d.failed ? "did not reach tier one"
+      : d.settled ? "settled at " + fmt(d.finalPrice) + " BOT"
+      : left(Number(d.endsAt));
+
+    return '<article class="block">' +
+      '<div class="bh"><h3>' + esc(d.item) + '</h3><div class="st">' + state + "</div></div>" +
+      '<div class="ladder">' + rungs + "</div>" +
+      '<div class="facts">' +
+        "<div><span>Buyers</span><b>" + buyers + " / " + d.cap + "</b></div>" +
+        "<div><span>Paid now</span><b>" + fmt(d.topPrice) + "</b></div>" +
+        "<div><span>" + (d.settled ? "Final" : "If settled") + "</span><b>" + fmt(d.settled ? d.finalPrice : priceNow) + "</b></div>" +
+        "<div><span>Your refund</span><b>" +
+          (joined ? fmt(d.settled ? d.topPrice - d.finalPrice : d.topPrice - priceNow) : "—") + "</b></div>" +
+      "</div>" +
+      (acts ? '<div class="ba">' + acts + "</div>" : "") +
+    "</article>";
+  }).join("");
+}
+
+/* --------------------------------------------------------------- actions */
+async function send(label, fn) {
+  if (!contract) { toast("Connect a wallet first", true); return; }
+  try {
+    toast(label + "…");
+    const tx = await fn();
+    await tx.wait();
+    toast(label + " confirmed");
+    await load();
+  } catch (e) { toast(reason(e), true); }
+}
+
+$("btn-create").onclick = () => {
+  const item = $("f-item").value.trim();
+  const rows = [...$("tiers").children];
+  const mins = rows.map((r) => Number(r.querySelector(".t-min").value));
+  const prices = rows.map((r) => r.querySelector(".t-price").value);
+  const cap = Number($("f-cap").value);
+
+  if (!item) { toast("Say what you are selling", true); return; }
+  if (!rows.length) { toast("Add at least one tier", true); return; }
+  if (mins.some((m) => !(m >= 1)) || prices.some((p) => !(Number(p) > 0))) {
+    toast("Every tier needs a head count and a price", true); return;
+  }
+  for (let i = 1; i < mins.length; i++) {
+    if (mins[i] <= mins[i - 1]) { toast("Head counts must go up", true); return; }
+    if (Number(prices[i]) >= Number(prices[i - 1])) { toast("Prices must come down", true); return; }
+  }
+  if (cap < mins[0]) { toast("The cap cannot be below the first tier", true); return; }
+
+  send("Posting the deal", () =>
+    contract.createDeal(item, mins, prices.map((p) => ethers.parseEther(p)), $("f-dur").value, cap)
+  );
+};
+
+$("deals").addEventListener("click", (ev) => {
+  const j = ev.target.closest("button[data-join]");
+  if (j) return send("Joining", () => contract.join(j.dataset.join, { value: j.dataset.price }));
+  const s = ev.target.closest("button[data-settle]");
+  if (s) return send("Settling", () => contract.settle(s.dataset.settle));
+  const r = ev.target.closest("button[data-refund]");
+  if (r) return send("Claiming refund", () => contract.claimRefund(r.dataset.refund));
+  const p = ev.target.closest("button[data-pay]");
+  if (p) return send("Collecting", () => contract.sellerWithdraw(p.dataset.pay));
+  const c = ev.target.closest("button[data-cancel]");
+  if (c) return send("Pulling the deal", () => contract.cancelDeal(c.dataset.cancel));
+});
+
+$("btn-connect").onclick = connect;
+$("btn-refresh").onclick = load;
+
+/* ------------------------------------------------------------------ boot */
+$("t-net").textContent = NETWORK.chainName + " · " + NETWORK.label;
+$("f-chain").textContent = "BOT Chain " + NETWORK.label;
+if (CONTRACT_ADDRESS !== ZERO) {
+  $("t-ctr").textContent = short(CONTRACT_ADDRESS);
+} else {
+  $("t-ctr").textContent = "contract not set";
+  $("t-ctr").className = "tag off";
+}
+if (window.ethereum) {
+  window.ethereum.on("accountsChanged", () => location.reload());
+  window.ethereum.on("chainChanged", () => location.reload());
+}
+readOnly();
+load();
+
+/* ---- BOT Chain ecosystem footer: follows the NETWORK config above ---- */
+(function () {
+  var ex = document.getElementById("bc-explorer");
+  if (ex) ex.href = NETWORK.blockExplorerUrls[0];
+})();
+</script>
+</body>
+</html>
